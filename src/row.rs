@@ -278,6 +278,28 @@ impl Row {
         (prev_pos, prev_attrs)
     }
 
+    /// Write one physical row as independently positioned snapshot output.
+    ///
+    /// Snapshot rows are streamed into a receiving terminal to construct its
+    /// native scrollback. Each row starts at column zero with no inherited
+    /// wrapping, cursor position, or drawing attributes. The returned position
+    /// tells the caller how many cells remain before a physical wrap.
+    pub(crate) fn write_snapshot_formatted(
+        &self,
+        contents: &mut Vec<u8>,
+    ) -> crate::grid::Pos {
+        let (pos, _) = self.write_contents_formatted(
+            contents,
+            0,
+            self.cols(),
+            0,
+            false,
+            None,
+            None,
+        );
+        pos
+    }
+
     // while it's true that most of the logic in this is identical to
     // write_contents_formatted, i can't figure out how to break out the
     // common parts without making things noticeably slower.

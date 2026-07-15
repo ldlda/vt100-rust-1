@@ -6,11 +6,41 @@ pub trait BufWrite {
 
 #[derive(Default, Debug)]
 #[must_use = "this struct does nothing unless you call write_buf"]
+pub struct EnterAlternateScreen;
+
+impl BufWrite for EnterAlternateScreen {
+    fn write_buf(&self, buf: &mut Vec<u8>) {
+        buf.extend_from_slice(b"\x1b[?1049h");
+    }
+}
+
+#[derive(Default, Debug)]
+#[must_use = "this struct does nothing unless you call write_buf"]
+pub struct ExitAlternateScreen;
+
+impl BufWrite for ExitAlternateScreen {
+    fn write_buf(&self, buf: &mut Vec<u8>) {
+        buf.extend_from_slice(b"\x1b[?1049l");
+    }
+}
+
+#[derive(Default, Debug)]
+#[must_use = "this struct does nothing unless you call write_buf"]
 pub struct ClearScreen;
 
 impl BufWrite for ClearScreen {
     fn write_buf(&self, buf: &mut Vec<u8>) {
         buf.extend_from_slice(b"\x1b[H\x1b[J");
+    }
+}
+
+#[derive(Default, Debug)]
+#[must_use = "this struct does nothing unless you call write_buf"]
+pub struct ClearScrollback;
+
+impl BufWrite for ClearScrollback {
+    fn write_buf(&self, buf: &mut Vec<u8>) {
+        buf.extend_from_slice(b"\x1b[3J");
     }
 }
 

@@ -199,6 +199,52 @@ impl Grid {
         self.scrollback_offset = rows.min(self.scrollback.len());
     }
 
+    pub(crate) fn clear_scrollback(&mut self) {
+        self.scrollback.clear();
+        self.scrollback_offset = 0;
+    }
+
+    /// Write retained history and the drawing rows as sequential terminal
+    /// output so a receiving terminal builds its own native scrollback.
+    ///
+    /// This deliberately does not use absolute row numbers for retained rows:
+    /// the receiving terminal still has the original physical height and
+    /// would clamp cursor addresses beyond that height.
+    pub(crate) fn write_snapshot_rows_formatted(
+        &self,
+        contents: &mut Vec<u8>,
+        max_scrollback_rows: usize,
+    ) {
+        let retained_start =
+            self.scrollback.len().saturating_sub(max_scrollback_rows);
+        let row_count =
+            self.scrollback.len() - retained_start + self.rows.len();
+        let rows = self
+            .scrollback
+            .iter()
+            .skip(retained_start)
+            .chain(self.rows.iter());
+
+        for (index, row) in rows.enumerate() {
+            crate::term::ClearAttrs.write_buf(contents);
+            let pos = row.write_snapshot_formatted(contents);
+            crate::term::ClearAttrs.write_buf(contents);
+
+            if row.wrapped() {
+                // A wrapped row may end in empty cells. Filling those cells
+                // reproduces the physical wrap without needing a cursor
+                // address outside the receiving terminal's visible height.
+                contents.resize(
+                    contents.len()
+                        + usize::from(self.size.cols.saturating_sub(pos.col)),
+                    b' ',
+                );
+            } else if index + 1 < row_count {
+                contents.extend_from_slice(b"\r\n");
+            }
+        }
+    }
+
     pub fn write_contents(&self, contents: &mut String) {
         let mut wrapping = false;
         for row in self.visible_rows() {

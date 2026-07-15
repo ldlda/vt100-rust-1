@@ -228,6 +228,50 @@ impl Screen {
         contents
     }
 
+    /// Return a reconnect snapshot containing bounded primary scrollback and
+    /// both terminal buffers when the alternate buffer is active.
+    ///
+    /// Unlike changing the public scrollback offset or screen dimensions, this
+    /// method only reads the parser state. Retained rows are emitted as normal
+    /// terminal output so the receiver builds native scrollback; the exact
+    /// visible grid, cursor, attributes, and input modes are restored last.
+    #[must_use]
+    pub fn snapshot_formatted(&self, max_scrollback_rows: usize) -> Vec<u8> {
+        // Always start in a clean primary buffer. ED 3 clears stale receiver
+        // scrollback; ClearScreen homes the cursor and erases the viewport.
+        let mut contents = Vec::new();
+        crate::term::ExitAlternateScreen.write_buf(&mut contents);
+        crate::term::ClearScrollback.write_buf(&mut contents);
+        crate::term::ClearScreen.write_buf(&mut contents);
+        self.grid.write_snapshot_rows_formatted(
+            &mut contents,
+            max_scrollback_rows,
+        );
+
+        // Redraw the exact primary screen after streaming its physical rows.
+        // While alternate mode is active, DECSC saved these primary attributes
+        // and will need to restore them when the application exits.
+        crate::term::HideCursor::new(self.hide_cursor())
+            .write_buf(&mut contents);
+        let prev_attrs = self.grid.write_contents_formatted(&mut contents);
+        let primary_attrs = if self.mode(MODE_ALTERNATE_SCREEN) {
+            &self.saved_attrs
+        } else {
+            &self.attrs
+        };
+        primary_attrs.write_escape_code_diff(&mut contents, &prev_attrs);
+
+        if self.mode(MODE_ALTERNATE_SCREEN) {
+            // The receiver saves the reconstructed primary cursor/attributes,
+            // clears its alternate buffer, then receives the active grid.
+            crate::term::EnterAlternateScreen.write_buf(&mut contents);
+            self.write_contents_formatted(&mut contents);
+        }
+
+        self.write_input_mode_formatted(&mut contents);
+        contents
+    }
+
     /// Return escape codes sufficient to turn the terminal state of the
     /// screen `prev` into the current terminal state. This is a convenience
     /// wrapper around [`contents_diff`](Self::contents_diff) and
@@ -1062,6 +1106,7 @@ impl Screen {
             0 => self.grid_mut().erase_all_forward(attrs),
             1 => self.grid_mut().erase_all_backward(attrs),
             2 => self.grid_mut().erase_all(attrs),
+            3 => self.grid_mut().clear_scrollback(),
             _ => unhandled(self),
         }
     }
