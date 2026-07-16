@@ -1,17 +1,18 @@
 [package]
-name = "vt100"
-version = "0.16.2"
+name = "wakey-vt100"
+version = "0.16.2-wakey.1"
 authors = ["Jesse Luehrs <doy@tozt.net>"]
 edition = "2021"
 rust-version = "1.70"
 
 description = "Library for parsing terminal data"
 homepage = "https://github.com/doy/vt100-rust"
-repository = "https://github.com/doy/vt100-rust"
+repository = "https://github.com/ldlda/vt100-rust-1"
 readme = "README.md"
 keywords = ["terminal", "vt100"]
 categories = ["command-line-interface", "encoding"]
 license = "MIT"
+publish = ["gitea"]
 include = ["src/**/*", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [dependencies]
