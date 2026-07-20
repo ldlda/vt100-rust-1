@@ -723,17 +723,21 @@ impl Grid {
 
     pub fn col_wrap(&mut self, width: u16, wrap: bool) {
         if self.pos.col > self.size.cols - width {
-            let mut prev_pos = self.pos;
+            let prev_pos = self.pos;
+            // Mark the row before scrolling. A one-row viewport moves this
+            // row directly into scrollback, so there may be no visible row to
+            // update after row_inc_scroll returns.
+            self.current_row_mut().wrap(wrap);
             self.pos.col = 0;
             let scrolled = self.row_inc_scroll(1);
-            prev_pos.row -= scrolled;
             let new_pos = self.pos;
-            self.drawing_row_mut(prev_pos.row)
-                // we assume self.pos.row is always valid, and so prev_pos.row
-                // must be valid because it is always less than or equal to
-                // self.pos.row
-                .unwrap()
-                .wrap(wrap && prev_pos.row + 1 == new_pos.row);
+            if let Some(prev_row) = prev_pos.row.checked_sub(scrolled) {
+                self.drawing_row_mut(prev_row)
+                    // prev_row is the pre-scroll cursor row shifted by exactly
+                    // the number of rows removed above it, so it remains valid.
+                    .unwrap()
+                    .wrap(wrap && prev_row + 1 == new_pos.row);
+            }
         }
     }
 

@@ -77,6 +77,20 @@ fn set_size() {
 }
 
 #[test]
+fn resize_to_one_row_with_pending_wrap_does_not_panic() {
+    let mut parser = vt100::Parser::new(2, 177, 100);
+    parser.process(b"\x1b[2;177Hx");
+
+    // A character in the last column leaves the cursor pending a wrap. The
+    // viewport can legitimately shrink to one row before the next character.
+    parser.screen_mut().set_size(1, 177);
+    parser.process(b"yz");
+
+    assert_eq!(parser.screen().size(), (1, 177));
+    assert_eq!(parser.screen().contents(), "z");
+}
+
+#[test]
 fn cell_contents() {
     let mut parser = vt100::Parser::default();
     let input = b"foo\x1b[31m\x1b[32mb\x1b[3;7;42ma\x1b[23mr";
